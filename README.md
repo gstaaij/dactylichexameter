@@ -1,7 +1,7 @@
 
 # Dactylic Hexameter (Working Title)
 
-This is (currently still WIP) program/library to scan Latin verses according to the dactylic hexameter.
+This is a (currently still WIP) program/library to scan Latin verses according to the dactylic hexameter.
 
 ## Compilation
 
