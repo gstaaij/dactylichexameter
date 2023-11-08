@@ -176,7 +176,7 @@ bool daIntContains(DynamicArrayInt daInt, int query) {
     return false;
 }
 
-bool numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
+size_t numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
     memset(syllableNumbers, ' ', MAX_SYLLABLES);
     size_t syllableNumberIndex = 0;
     size_t addedNumbers = 0;
@@ -216,16 +216,18 @@ bool numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOfSy
         nob_log(NOB_WARNING, "entered an invalid verse or there are rules this program doesn't account for (yet)");
     }
     // Return if all numbers were filled in
-    return addedNumbers >= 6;
+    return addedNumbers;
 }
 
-void makeMetraStartLong(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
-    numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, shouldWarn);
+size_t makeMetraStartLong(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
+    size_t amountOfNumberedMetra = numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, shouldWarn);
 
     for (size_t i = 0; i < amountOfSyllables; ++i) {
         if (syllableNumbers[i] == ' ' || syllableLengths[i] != '?') continue;
         syllableLengths[i] = '_';
     }
+
+    return amountOfNumberedMetra;
 }
 
 bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_String_Builder* sbScan, Nob_String_Builder* sbStrippedLine) {
@@ -305,6 +307,8 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
     for (size_t _n = 0; _n < 3; ++_n) {
         // "Fix" the syllables by numbering the metra and putting a '_' at the first part of every metrum
         makeMetraStartLong(syllableNumbers, syllableLengths, amountOfSyllables, false);
+
+        // Check for patterns that force a specific length at a specific place
         for (size_t i = 1; i < amountOfSyllables - 1; ++i) {
             if (syllableLengths[i] != '?') continue;
 
@@ -335,6 +339,21 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
                 syllableLengths[i] = 'u';
                 continue;
             }
+        }
+    }
+
+    // "Fix" the syllables by numbering the metra and putting a '_' at the first part of every metrum
+    size_t amountOfNumberedMetra = makeMetraStartLong(syllableNumbers, syllableLengths, amountOfSyllables, false);
+
+    // Count the amount of unknown lengths
+    size_t amountOfUnknownLengths = 0;
+    for (size_t i = 0; i < amountOfSyllables; ++i) {
+        if (syllableLengths[i] == '?') ++amountOfUnknownLengths;
+    }
+
+    if ((6 - amountOfNumberedMetra) * 2 + 2 == amountOfUnknownLengths) {
+        for (size_t i = 0; i < amountOfSyllables; ++i) {
+            if (syllableLengths[i] == '?') syllableLengths[i] = 'u';
         }
     }
 
