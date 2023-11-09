@@ -1,5 +1,5 @@
 
-# Dactylic Hexameter (Working Title)
+# dh (I will think of a better name later)
 
 This is a (currently still WIP) program/library to scan Latin verses according to the dactylic hexameter.
 

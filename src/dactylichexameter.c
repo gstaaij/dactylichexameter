@@ -21,12 +21,14 @@
 
 #include "dactylichexameter.h"
 
+// A dynamic array of String Views, to be able to easily split/chop them
 typedef struct {
     Nob_String_View* items;
     size_t count;
     size_t capacity;
 } ChoppedStringView;
 
+// Split a string into a ChoppedStringView: a dynamic array of String Views
 ChoppedStringView chopString(const char* string, char delim) {
     ChoppedStringView result = {0};
     Nob_String_View sv = nob_sv_from_cstr(string);
@@ -38,6 +40,7 @@ ChoppedStringView chopString(const char* string, char delim) {
     return result;
 }
 
+// Strip out all of the empty items in the ChoppedStringView and trim it at the same time
 ChoppedStringView trimChoppedString(const ChoppedStringView csv) {
     ChoppedStringView result = {0};
     for (size_t i = 0; i < csv.count; ++i) {
@@ -47,6 +50,7 @@ ChoppedStringView trimChoppedString(const ChoppedStringView csv) {
     return result;
 }
 
+// Convert a string to lowercase
 char* strLower(const char* string) {
     Nob_String_Builder lower = {0};
     for (size_t i = 0; string[i]; i++) {
@@ -56,6 +60,7 @@ char* strLower(const char* string) {
     return lower.items;
 }
 
+// A list of all vowels in Latin
 static char vowels[] = {
     'a',
     'e',
@@ -65,6 +70,7 @@ static char vowels[] = {
     'y',
 };
 
+// Check if a character in a string is a vowel
 bool isVowel(const char* string, size_t index) {
     char chr = string[index];
     // A 'u' after a 'q' is pronounced as a 'w', not counted as a vowel
@@ -76,6 +82,7 @@ bool isVowel(const char* string, size_t index) {
     return false;
 }
 
+// A list of all diphthongs in Latin
 static char* diphthongs[] = {
     "ae",
     "au",
@@ -84,6 +91,7 @@ static char* diphthongs[] = {
     "oe",
 };
 
+// Check if two characters are a diphthong
 bool isDiphthong(const char chr0, const char chr1) {
     for (size_t j = 0; j < NOB_ARRAY_LEN(diphthongs); ++j) {
         if (chr0 == diphthongs[j][0] && chr1 == diphthongs[j][1]) {
@@ -108,32 +116,42 @@ char* dhStripLine(const char* string) {
 
 bool dhElision(const char* line, Nob_String_Builder* sb) {
     bool result = true;
+    // Clear the result string builder
     sb->count = 0;
+    // Chop the line by spaces and trim it
     ChoppedStringView temp = chopString(strLower(line), ' ');
     ChoppedStringView choppedLine = trimChoppedString(temp);
 
+    // If the line contains 0 words, fail
     if (choppedLine.count == 0) {
         nob_log(NOB_ERROR, "Empty verse");
         nob_return_defer(false);
     }
 
+    // If there's only one word, you can just return, elision can't happen on just one word
     if (choppedLine.count < 2) {
         nob_sb_append_cstr(sb, line);
         nob_return_defer(true);
     }
 
+    // Go through every word except the last one
     for (size_t i = 0; i < choppedLine.count - 1; ++i) {
         Nob_String_View word = choppedLine.items[i];
+        // Check if the words ends with a vowel or an 'm'
         bool endsWithVowel = word.data[word.count - 1] == 'm' || isVowel(word.data, word.count - 1);
         if (!endsWithVowel) {
+            // If not, just add the word to the string buffer and continue
             nob_sb_append_buf(sb, word.data, word.count);
             nob_da_append(sb, ' ');
             continue;
         }
 
         Nob_String_View nextWord = choppedLine.items[i + 1];
+        // Check if the next word begins with a vowel or a 'h'
         bool beginsWithVowel = nextWord.data[0] == 'h' || isVowel(nextWord.data, 0);
         if (beginsWithVowel) {
+            // If so, perform elision
+
             size_t size = word.count;
             // Remove the 'm' from the word
             if (word.data[size - 1] == 'm') --size;
@@ -145,30 +163,39 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
             // Add the truncated word to the string builder
             nob_sb_append_buf(sb, word.data, size);
             // Add extra spaces to the string builder to keep it the same length
-            nob_sb_append_buf(sb, "   ", word.count - size);
+            for (size_t _ = 1; _ < word.count - size; ++_) nob_da_append(sb, ' ');
         } else {
+            // If not, just add the line to the string builder
             nob_sb_append_buf(sb, word.data, word.count);
         }
+        // Add a space to seperate the words
         nob_da_append(sb, ' ');
     }
+    // Add the last word to the string builder
     Nob_String_View word = choppedLine.items[choppedLine.count - 1];
     nob_sb_append_buf(sb, word.data, word.count);
 
 defer:
+    // Some cleanup that may or may not actually be neccessary
     nob_da_free(temp);
     nob_da_free(choppedLine);
     return result;
 }
 
+// Define the minimum and maximum amount of syllables/dactyli
+// Lowest amount of dactyli: _ _   _ _   _ _   _ _   _ uu  _ _ (13 dactyli)
+// Lowest amount of dactyli: _ uu  _ uu  _ uu  _ uu  _ uu  _ _ (17 dactyli)
 #define MIN_SYLLABLES 13
 #define MAX_SYLLABLES 17
 
+// A dynamic array of integers
 typedef struct {
     int* items;
     size_t count;
     size_t capacity;
 } DynamicArrayInt;
 
+// Check if a DAInt contains a certain value
 bool daIntContains(DynamicArrayInt daInt, int query) {
     for (size_t i = 0; i < daInt.count; ++i) {
         if (daInt.items[i] == query) return true;
@@ -176,7 +203,9 @@ bool daIntContains(DynamicArrayInt daInt, int query) {
     return false;
 }
 
+// Assign numbers to the syllables, and optionally log a warning if too few were assigned
 size_t numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
+    // Clear the syllableNumbers array (it should always have a length of 17, so no buffer overflows should happen)
     memset(syllableNumbers, ' ', MAX_SYLLABLES);
     size_t syllableNumberIndex = 0;
     size_t addedNumbers = 0;
@@ -215,30 +244,35 @@ size_t numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOf
         nob_log(NOB_WARNING, "Couldn't completely number the metra due to some missing dactyli. You've either");
         nob_log(NOB_WARNING, "entered an invalid verse or there are rules this program doesn't account for (yet)");
     }
-    // Return if all numbers were filled in
+
+    // Return the amount of numbers that were filled in
     return addedNumbers;
 }
 
 size_t makeMetraStartLong(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
-    size_t amountOfNumberedMetra = numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, shouldWarn);
+    numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, shouldWarn);
 
+    // Go through the syllables and make the ones that have a number assigned to them long, because they're at the start of a metrum
     for (size_t i = 0; i < amountOfSyllables; ++i) {
         if (syllableNumbers[i] == ' ' || syllableLengths[i] != '?') continue;
         syllableLengths[i] = '_';
     }
-
-    return amountOfNumberedMetra;
 }
 
 bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_String_Builder* sbScan, Nob_String_Builder* sbStrippedLine) {
+    // Clear all the string builders
     sbNumbers->count = 0;
     sbScan->count = 0;
     sbStrippedLine->count = 0;
+
+    // Strip the line and make it lowercase
     const char* line = strLower(dhStripLine(unstrippedLine));
+
     size_t len = strlen(line);
     size_t amountOfSyllables = 0;
+    // Create a list of syllable positions and initialise it at -1, an invalid index
     size_t syllablePositions[MAX_SYLLABLES] = {0};
-    memset(syllablePositions, -1, MAX_SYLLABLES*sizeof(size_t));
+    memset(syllablePositions, (size_t) -1, MAX_SYLLABLES*sizeof(size_t));
     // Count the syllables (dactyli in Latin) and record their positions in the line
     for (size_t i = 0; i < len; ++i) {
         if (isVowel(line, i)) {
@@ -264,6 +298,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         return false;
     }
 
+    // Create a list of the characters to indicate the pronounciation of syllables. Initialise it with question marks
     char syllableLengths[MAX_SYLLABLES] = {0};
     memset(syllableLengths, '?', MAX_SYLLABLES);
     // Use (sometimes way too complicated) rules to determine lengths of syllables
@@ -301,6 +336,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         }
     }
 
+    // Create a list of the characters to indicate where a new metrum begins and the how-manieth it is
     char syllableNumbers[MAX_SYLLABLES] = {0};
 
     // Check for patterns that force a particular length to be used (thrice, just in case)
@@ -312,6 +348,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         for (size_t i = 1; i < amountOfSyllables - 1; ++i) {
             if (syllableLengths[i] != '?') continue;
 
+            // Patterns that force a long syllable
             if (
                 (syllableLengths[i - 1] == '_' && syllableLengths[i + 1] == '_') ||                             // _ ? _
                 (i >= 2 && syllableLengths[i - 2] == 'u' && syllableLengths[i - 1] == 'u') ||                   // u u ?
@@ -321,6 +358,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
                 continue;
             }
 
+            // Patterns that force a short one
             if (
                 (syllableLengths[i - 1] == 'u' && syllableLengths[i + 1] == '_') ||                             // u ? _
                 (i >= 2 && syllableLengths[i - 2] == '_' && syllableLengths[i - 1] == 'u') ||                   // _ u ?
@@ -330,6 +368,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
                 continue;
             }
 
+            // A way too complicated pattern to force a short one (it's also probably redundant because of the check after these for loops)
             if (
                 // n     n+1
                 // _ ? ? _
@@ -342,8 +381,8 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         }
     }
 
-    // "Fix" the syllables by numbering the metra and putting a '_' at the first part of every metrum
-    size_t amountOfNumberedMetra = makeMetraStartLong(syllableNumbers, syllableLengths, amountOfSyllables, false);
+    // Number the metra to prepare for the next part
+    size_t amountOfNumberedMetra = numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, false);
 
     // Count the amount of unknown lengths
     size_t amountOfUnknownLengths = 0;
@@ -351,6 +390,14 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         if (syllableLengths[i] == '?') ++amountOfUnknownLengths;
     }
 
+    // If the amount of numbered metra and the amount of unknown lengths match up in a certain way, they should all be long
+    // Here is an example:
+    //  1                3          4     5      6
+    //  _   ? ?  _   ? ? _    _     _  _  _ u u  _  _
+    //
+    // 5 metra were numbered, so the weird calculation (6 - 5) * 2 + 2 = 4
+    // The amount of unknown lengths is also 4, so this means the unknown lengths can't be long,
+    // because there would be too many metra
     if ((6 - amountOfNumberedMetra) * 2 + 2 == amountOfUnknownLengths) {
         for (size_t i = 0; i < amountOfSyllables; ++i) {
             if (syllableLengths[i] == '?') syllableLengths[i] = 'u';
@@ -360,6 +407,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
     // Put the syllable numbers in the correct spots
     numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, true);
 
+    // Detect where spaces or special characters were in the original unstripped line
     DynamicArrayInt spacePositions = {0};
     size_t unstrippedLen = strlen(unstrippedLine);
     size_t strippedLineIndex = 0;
@@ -375,6 +423,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         }
     }
     
+    // Add some spaces back into the line to make it more readable, and fill the other string builders
     size_t syllableIndex = 0;
     for (size_t i = 0; i < len; ++i) {
         if (daIntContains(spacePositions, i)) {
@@ -393,5 +442,6 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         nob_da_append(sbScan, ' ');
     }
 
+    // Success!
     return true;
 }

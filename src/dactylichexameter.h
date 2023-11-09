@@ -22,8 +22,13 @@
 #pragma once
 #include "nob.h"
 
+// Get rid of all whitespace and extra characters, and only leave in letters in a string
 char* dhStripLine(const char* string);
 
+// Perform elision on a Latin verse. The words must be seperated by spaces
 bool dhElision(const char* sentence, Nob_String_Builder* sb);
 
+/* Scans an elided Latin verse. sbNumbers, sbLength and sbStrippedLine will be cleared and filled
+ * with information that can be printed in that order with newlines inbetween them
+ */
 bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_String_Builder* sbLength, Nob_String_Builder* sbStrippedLine);
