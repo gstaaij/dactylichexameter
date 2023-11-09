@@ -147,7 +147,7 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
         }
 
         Nob_String_View nextWord = choppedLine.items[i + 1];
-        // Check if the next word begins with a vowel or a 'h'
+        // Check if the next word begins with a vowel or an 'h'
         bool beginsWithVowel = nextWord.data[0] == 'h' || isVowel(nextWord.data, 0);
         if (beginsWithVowel) {
             // If so, perform elision
@@ -195,7 +195,7 @@ typedef struct {
     size_t capacity;
 } DynamicArrayInt;
 
-// Check if a DAInt contains a certain value
+// Check if a DynamicArrayInt contains a certain value
 bool daIntContains(DynamicArrayInt daInt, int query) {
     for (size_t i = 0; i < daInt.count; ++i) {
         if (daInt.items[i] == query) return true;
@@ -270,7 +270,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
 
     size_t len = strlen(line);
     size_t amountOfSyllables = 0;
-    // Create a list of syllable positions and initialise it at -1, an invalid index
+    // Create a list of syllable positions and initialise it at -1
     size_t syllablePositions[MAX_SYLLABLES] = {0};
     memset(syllablePositions, (size_t) -1, MAX_SYLLABLES*sizeof(size_t));
     // Count the syllables (dactyli in Latin) and record their positions in the line
