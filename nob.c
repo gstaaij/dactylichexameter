@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
             logAvailableTargets(NOB_INFO);
         }
 
-        parseTarget(subcommand, &target);
+        if (!parseTarget(subcommand, &target)) return 1;
     }
 
     Nob_Cmd cmd = {0};
