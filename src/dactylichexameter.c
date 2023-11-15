@@ -141,7 +141,10 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
         bool endsWithVowel = word.data[word.count - 1] == 'm' || isVowel(word.data, word.count - 1);
         if (!endsWithVowel) {
             // If not, just add the word to the string buffer and continue
-            nob_sb_append_buf(sb, word.data, word.count);
+            for (size_t i = 0; i < word.count; ++i) {
+                if (word.data[i] != 'h')
+                    nob_da_append(sb, word.data[i]);
+            }
             nob_da_append(sb, ' ');
             continue;
         }
@@ -161,7 +164,10 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
             --size;
 
             // Add the truncated word to the string builder
-            nob_sb_append_buf(sb, word.data, size);
+            for (size_t i = 0; i < size; ++i) {
+                if (word.data[i] != 'h')
+                    nob_da_append(sb, word.data[i]);
+            }
             // Add extra spaces to the string builder to keep it the same length
             for (size_t _ = 1; _ < word.count - size; ++_) nob_da_append(sb, ' ');
         } else {
