@@ -249,7 +249,7 @@ size_t numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOf
     return addedNumbers;
 }
 
-size_t makeMetraStartLong(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
+void makeMetraStartLong(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
     numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, shouldWarn);
 
     // Go through the syllables and make the ones that have a number assigned to them long, because they're at the start of a metrum
@@ -272,7 +272,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
     size_t amountOfSyllables = 0;
     // Create a list of syllable positions and initialise it at -1
     size_t syllablePositions[MAX_SYLLABLES] = {0};
-    memset(syllablePositions, (size_t) -1, MAX_SYLLABLES*sizeof(size_t));
+    memset(syllablePositions, -1, MAX_SYLLABLES*sizeof(size_t));
     // Count the syllables (dactyli in Latin) and record their positions in the line
     for (size_t i = 0; i < len; ++i) {
         if (isVowel(line, i)) {
