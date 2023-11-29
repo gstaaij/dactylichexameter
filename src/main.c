@@ -15,20 +15,20 @@ int main(void) {
         memset(sentence, 0, 128);
 
         // Get the verse to scan
-        printf("Intrare versum: ");
+        printf("\nIntrare versum: ");
         fgets(sentence, 128, stdin);
 
         printf("\n");
 
         // Perform elision
-        if (!dhElision(sentence, &sbElision)) return false;
+        if (!dhElision(sentence, &sbElision)) continue;
         nob_sb_append_null(&sbElision);
         printf("Elision: %s\n", sbElision.items);
 
         printf("\n");
 
         // Scan the verse
-        if (!dhScan(sbElision.items, &sbNumbers, &sbScan, &sbStrippedLine)) return false;
+        if (!dhScan(sbElision.items, &sbNumbers, &sbScan, &sbStrippedLine)) continue;
         nob_sb_append_null(&sbNumbers);
         nob_sb_append_null(&sbScan);
         nob_sb_append_null(&sbStrippedLine);
