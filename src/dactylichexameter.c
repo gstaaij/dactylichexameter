@@ -387,6 +387,24 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         }
     }
 
+
+    bool shouldAllBeShort = false;
+
+
+    // Count the amount of long syllables
+    size_t amountOfLongSyllables = 0;
+    for (size_t i = 0; i < amountOfSyllables; ++i) {
+        if (syllableLengths[i] == '_') ++amountOfLongSyllables;
+    }
+
+    size_t amountOfShortSyllablesThereShouldBe = (amountOfSyllables - 12) * 2;
+    size_t amountOfLongSyllablesThereShouldBe = amountOfSyllables - amountOfShortSyllablesThereShouldBe;
+
+    if (amountOfLongSyllables == amountOfLongSyllablesThereShouldBe) {
+        shouldAllBeShort = true;
+    }
+
+
     // Number the metra to prepare for the next part
     size_t amountOfNumberedMetra = numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, false);
 
@@ -396,7 +414,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         if (syllableLengths[i] == '?') ++amountOfUnknownLengths;
     }
 
-    // If the amount of numbered metra and the amount of unknown lengths match up in a certain way, they should all be long
+    // If the amount of numbered metra and the amount of unknown lengths match up in a certain way, they should all be short
     // Here is an example:
     //  1                3          4     5      6
     //  _   ? ?  _   ? ? _    _     _  _  _ u u  _  _
@@ -405,6 +423,11 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
     // The amount of unknown lengths is also 4, so this means the unknown lengths can't be long,
     // because there would be too many metra
     if ((6 - amountOfNumberedMetra) * 2 + 2 == amountOfUnknownLengths) {
+        shouldAllBeShort = true;
+    }
+    
+
+    if (shouldAllBeShort) {
         for (size_t i = 0; i < amountOfSyllables; ++i) {
             if (syllableLengths[i] == '?') syllableLengths[i] = 'u';
         }
