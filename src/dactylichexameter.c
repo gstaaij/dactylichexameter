@@ -71,7 +71,7 @@ static char vowels[] = {
 };
 
 // Check if a character in a string is a vowel
-bool isVowel(const char* string, size_t index) {
+bool isVowel(const char* string, const size_t index) {
     char chr = string[index];
     // A 'u' after a 'q' is pronounced as a 'w', not counted as a vowel
     if (index != 0 && chr == 'u' && string[index - 1] == 'q') return false;
@@ -82,6 +82,23 @@ bool isVowel(const char* string, size_t index) {
     return false;
 }
 
+
+// A dynamic array of integers
+typedef struct {
+    int* items;
+    size_t count;
+    size_t capacity;
+} DynamicArrayInt;
+
+// Check if a DynamicArrayInt contains a certain value
+bool daIntContains(DynamicArrayInt daInt, int query) {
+    for (size_t i = 0; i < daInt.count; ++i) {
+        if (daInt.items[i] == query) return true;
+    }
+    return false;
+}
+
+
 // A list of all diphthongs in Latin
 static char* diphthongs[] = {
     "ae",
@@ -91,10 +108,42 @@ static char* diphthongs[] = {
     "oe",
 };
 
+static char* diphthongExceptionWords[] = {
+    "ei",
+    "eis",
+    "mei",
+    "meis",
+};
+
+static int diphthongExceptionWordStartIndices[] = {
+    0,
+    0,
+    1,
+    1,
+};
+
 // Check if two characters are a diphthong
-bool isDiphthong(const char chr0, const char chr1) {
+bool isDiphthong(const char* string, const size_t index, const DynamicArrayInt spacePositions) {
+    size_t stringLen = strlen(string);
     for (size_t j = 0; j < NOB_ARRAY_LEN(diphthongs); ++j) {
-        if (chr0 == diphthongs[j][0] && chr1 == diphthongs[j][1]) {
+        if (string[index] == diphthongs[j][0] && string[index + 1] == diphthongs[j][1]) {
+            for (size_t k = 0; k < NOB_ARRAY_LEN(diphthongExceptionWords); ++k) {
+                const size_t diphthongExceptionLen = strlen(diphthongExceptionWords[k]);
+                const size_t exceptionStartIndex = index - diphthongExceptionWordStartIndices[k];
+                if (stringLen - exceptionStartIndex < diphthongExceptionLen) continue;
+                bool isWord = true;
+                for (size_t l = 0; l < diphthongExceptionLen; ++l) {
+                    if (string[exceptionStartIndex + l] != diphthongExceptionWords[k][l]) {
+                        isWord = false;
+                        break;
+                    }
+                }
+                if (isWord) {
+                    if (!(daIntContains(spacePositions, exceptionStartIndex) && daIntContains(spacePositions, exceptionStartIndex + diphthongExceptionLen)))
+                        continue;
+                    return false;
+                }
+            }
             return true;
         }
     }
@@ -134,6 +183,8 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
         nob_return_defer(true);
     }
 
+    DynamicArrayInt daIntEmpty = {0};
+
     // Go through every word except the last one
     for (size_t i = 0; i < choppedLine.count - 1; ++i) {
         Nob_String_View word = choppedLine.items[i];
@@ -159,7 +210,7 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
             // Remove the 'm' from the word
             if (word.data[size - 1] == 'm') --size;
             // Remove an extra vowel to account for the diphthong
-            if (isDiphthong(word.data[size - 2], word.data[size - 1])) --size;
+            if (isDiphthong(word.data, size - 2, daIntEmpty)) --size;
             // Remove the vowel
             --size;
 
@@ -193,21 +244,6 @@ defer:
 // Lowest amount of dactyli: _ uu  _ uu  _ uu  _ uu  _ uu  _ _ (17 dactyli)
 #define MIN_SYLLABLES 13
 #define MAX_SYLLABLES 17
-
-// A dynamic array of integers
-typedef struct {
-    int* items;
-    size_t count;
-    size_t capacity;
-} DynamicArrayInt;
-
-// Check if a DynamicArrayInt contains a certain value
-bool daIntContains(DynamicArrayInt daInt, int query) {
-    for (size_t i = 0; i < daInt.count; ++i) {
-        if (daInt.items[i] == query) return true;
-    }
-    return false;
-}
 
 // Assign numbers to the syllables, and optionally log a warning if too few were assigned
 size_t numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOfSyllables, bool shouldWarn) {
@@ -274,6 +310,24 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
     // Strip the line and make it lowercase
     const char* line = strLower(dhStripLine(unstrippedLine));
 
+
+    // Detect where spaces or special characters were in the original unstripped line
+    DynamicArrayInt spacePositions = {0};
+    size_t unstrippedLen = strlen(unstrippedLine);
+    size_t strippedLineIndex = 0;
+    for (size_t i = 0; i < unstrippedLen; ++i) {
+        char chr = unstrippedLine[i];
+        if (!isalpha(chr) || isspace(chr)) {
+            nob_da_append(&spacePositions, strippedLineIndex);
+            // Skip over all the whitespace
+           while (i < unstrippedLen && (!isalpha(unstrippedLine[i]) || isspace(unstrippedLine[i]))) ++i;
+           --i;
+        } else {
+            ++strippedLineIndex;
+        }
+    }
+
+
     size_t len = strlen(line);
     size_t amountOfSyllables = 0;
     // Create a list of syllable positions and initialise it at -1
@@ -292,7 +346,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
             }
 
             // Check for diphthongs and skip the next vowel if one is found
-            if (i != len - 1 && isVowel(line, i + 1) && isDiphthong(line[i], line[i + 1])) {
+            if (i != len - 1 && isVowel(line, i + 1) && isDiphthong(line, i, spacePositions)) {
                 i++;
             }
         }
@@ -312,7 +366,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
         size_t lineIndex = syllablePositions[i];
         // Check for a diphthong
         if (lineIndex < len - 1 && isVowel(line, lineIndex + 1)) {
-            if (isDiphthong(line[lineIndex], line[lineIndex + 1])) {
+            if (isDiphthong(line, lineIndex, spacePositions)) {
                 syllableLengths[i] = '_';
                 continue;
             }
@@ -436,21 +490,6 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
     // Put the syllable numbers in the correct spots
     numberMetra(syllableNumbers, syllableLengths, amountOfSyllables, true);
 
-    // Detect where spaces or special characters were in the original unstripped line
-    DynamicArrayInt spacePositions = {0};
-    size_t unstrippedLen = strlen(unstrippedLine);
-    size_t strippedLineIndex = 0;
-    for (size_t i = 0; i < unstrippedLen; ++i) {
-        char chr = unstrippedLine[i];
-        if (!isalpha(chr) || isspace(chr)) {
-            nob_da_append(&spacePositions, strippedLineIndex);
-            // Skip over all the whitespace
-           while (i < unstrippedLen && (!isalpha(unstrippedLine[i]) || isspace(unstrippedLine[i]))) ++i;
-           --i;
-        } else {
-            ++strippedLineIndex;
-        }
-    }
     
     // Add some spaces back into the line to make it more readable, and fill the other string builders
     size_t syllableIndex = 0;
