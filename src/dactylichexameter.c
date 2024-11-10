@@ -252,6 +252,9 @@ size_t numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOf
     size_t syllableNumberIndex = 0;
     size_t addedNumbers = 0;
     for (size_t i = 1; i <= 6; ++i) {
+        // Don't add this number if it landed on a short syllable, because the first syllable in a group cannot be short
+        if (syllableLengths[syllableNumberIndex] == 'u')
+            break;
         // Set the number character (ASCII 0x3.)
         syllableNumbers[syllableNumberIndex] = (char) i + 0x30;
         ++addedNumbers;
@@ -268,6 +271,9 @@ size_t numberMetra(char* syllableNumbers, char* syllableLengths, size_t amountOf
     if (addedNumbers < 6) {
         syllableNumberIndex = amountOfSyllables - 2;
         for (size_t i = 6; i >= 1; --i) {
+            // Don't add this number if it landed on a short syllable, because the first syllable in a group cannot be short
+            if (syllableLengths[syllableNumberIndex] == 'u')
+                break;
             // Set the number character (ASCII 0x3.)
             syllableNumbers[syllableNumberIndex] = (char) i + 0x30;
             ++addedNumbers;
@@ -420,7 +426,7 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
 
             // Patterns that force a short one
             if (
-                (syllableLengths[i - 1] == 'u' && syllableLengths[i + 1] == '_') ||                             // u ? _
+                // (syllableLengths[i - 1] == 'u' && syllableLengths[i + 1] == '_') ||                             // u ? _
                 (i >= 2 && syllableLengths[i - 2] == '_' && syllableLengths[i - 1] == 'u') ||                   // _ u ?
                 (i < amountOfSyllables - 2 && syllableLengths[i + 1] == 'u' && syllableLengths[i + 2] == '_')   // ? u _
             ) {
@@ -476,6 +482,14 @@ bool dhScan(const char* unstrippedLine, Nob_String_Builder* sbNumbers, Nob_Strin
     // 5 metra were numbered, so the weird calculation (6 - 5) * 2 + 2 = 4
     // The amount of unknown lengths is also 4, so this means the unknown lengths can't be long,
     // because there would be too many metra
+    //
+    // This doesn't work:
+    // 1                            5       6
+    // _  ?  ? ?  ? ?    ? _   ? ?  _ u  u  _  _
+    // ipsa canas oro." Finem dedit ore loquendi.
+    // 
+    // 3 metra were numbered, (6 - 3) * 2 + 2 = 8, there are 8 dactyli unknown. Not all of them should be short.
+    // TODO: solve this issue
     if ((6 - amountOfNumberedMetra) * 2 + 2 == amountOfUnknownLengths) {
         shouldAllBeShort = true;
     }
