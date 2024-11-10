@@ -1,4 +1,5 @@
 #define NOB_IMPLEMENTATION
+#define NOB_STRIP_PREFIX
 #include "./src/nob.h"
 
 // Stolen from https://github.com/tsoding/musializer
@@ -14,7 +15,7 @@ const char *targetNames[] = {
     [TARGET_WIN64_MINGW] = "win64-mingw",
 };
 
-void logAvailableTargets(Nob_Log_Level level) {
+void logAvailableTargets(Log_Level level) {
     nob_log(level, "Available targets:");
     for (size_t i = 0; i < COUNT_TARGETS; ++i) {
         nob_log(level, "    %s", targetNames[i]);
@@ -32,8 +33,8 @@ bool parseTarget(const char* value, Target* target) {
     }
 
     if (!found) {
-        nob_log(NOB_ERROR, "Unknown target %s", value);
-        logAvailableTargets(NOB_ERROR);
+        nob_log(ERROR, "Unknown target %s", value);
+        logAvailableTargets(ERROR);
         return false;
     }
 
@@ -48,9 +49,9 @@ static char* sourceFiles[] = {
 int main(int argc, char** argv) {
     NOB_GO_REBUILD_URSELF(argc, argv);
 
-    const char* program = nob_shift_args(&argc, &argv);
+    const char* program = shift(argv, argc);
 
-    if (!nob_mkdir_if_not_exists("./build")) return 1;
+    if (!mkdir_if_not_exists("./build")) return 1;
 
 #ifdef _WIN32
     Target target = TARGET_WIN64_MINGW;
@@ -58,31 +59,31 @@ int main(int argc, char** argv) {
     Target target = TARGET_LINUX;
 #endif
     if (argc > 0) {
-        const char* subcommand = nob_shift_args(&argc, &argv);
+        const char* subcommand = shift(argv, argc);
         if (strcmp(subcommand, "--help") == 0 || strcmp(subcommand, "-h") == 0 || strcmp(subcommand, "help") == 0) {
-            nob_log(NOB_INFO, "Usage: %s [target]");
-            logAvailableTargets(NOB_INFO);
+            nob_log(INFO, "Usage: %s [target]");
+            logAvailableTargets(INFO);
         }
 
         if (!parseTarget(subcommand, &target)) return 1;
     }
 
-    Nob_Cmd cmd = {0};
+    Cmd cmd = {0};
     if (target == TARGET_WIN64_MINGW)
-        nob_cmd_append(&cmd, "x86_64-w64-mingw32-gcc");
+        cmd_append(&cmd, "x86_64-w64-mingw32-gcc");
     else
-        nob_cmd_append(&cmd, "gcc");
-    nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
-    nob_cmd_append(&cmd, "-o", "./build/main");
-    for (size_t i = 0; i < NOB_ARRAY_LEN(sourceFiles); ++i) {
-        nob_cmd_append(&cmd, nob_temp_sprintf("./src/%s", sourceFiles[i]));
+        cmd_append(&cmd, "gcc");
+    cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
+    cmd_append(&cmd, "-o", "./build/main");
+    for (size_t i = 0; i < ARRAY_LEN(sourceFiles); ++i) {
+        cmd_append(&cmd, nob_temp_sprintf("./src/%s", sourceFiles[i]));
     }
 
     if (target == TARGET_WIN64_MINGW)
-        nob_cmd_append(&cmd, "-static");
+        cmd_append(&cmd, "-static");
 
 
-    if (!nob_cmd_run_sync(cmd)) return 1;
+    if (!cmd_run_sync_and_reset(&cmd)) return 1;
 
     return 0;
 }
