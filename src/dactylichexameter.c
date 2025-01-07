@@ -44,7 +44,22 @@ ChoppedStringView chopString(const char* string, char delim) {
 ChoppedStringView trimChoppedString(const ChoppedStringView csv) {
     ChoppedStringView result = {0};
     for (size_t i = 0; i < csv.count; ++i) {
-        Nob_String_View svTrimmed = nob_sv_trim(csv.items[i]);
+        Nob_String_View sv = csv.items[i];
+
+        // Trim sv left
+        size_t i = 0;
+        while (i < sv.count && !isalpha(sv.data[i])) {
+            i += 1;
+        }
+        Nob_String_View svTrimmedLeft = nob_sv_from_parts(sv.data + i, sv.count - i);
+
+        // Trim sv right
+        i = 0;
+        while (i < svTrimmedLeft.count && !isalpha(svTrimmedLeft.data[svTrimmedLeft.count - 1 - i])) {
+            i += 1;
+        }
+        Nob_String_View svTrimmed = nob_sv_from_parts(svTrimmedLeft.data, svTrimmedLeft.count - i);
+
         if (svTrimmed.count > 0) nob_da_append(&result, svTrimmed);
     }
     return result;
@@ -73,6 +88,7 @@ static char vowels[] = {
 // Check if a character in a string is a vowel
 bool isVowel(const char* string, const size_t index) {
     char chr = string[index];
+    if (!isalpha(chr)) return false;
     // A 'u' after a 'q' is pronounced as a 'w', not counted as a vowel
     if (index != 0 && chr == 'u' && string[index - 1] == 'q') return false;
 
@@ -163,6 +179,22 @@ char* dhStripLine(const char* string) {
     return sb.items;
 }
 
+char getCharOrJ(const size_t index, const char* str, const size_t len) {
+    if (
+        str[index] == 'i' &&
+        index + 1 < len &&
+        (index == 0 || isVowel(str, index - 1)) &&
+        isVowel(str, index + 1)
+    ) {
+        DynamicArrayInt daIntEmpty = {0};
+
+        if (!isDiphthong(str, index, daIntEmpty) && (index == 0 || !isDiphthong(str, index - 1, daIntEmpty))) {
+            return 'j';
+        }
+    }
+    return str[index];
+}
+
 bool dhElision(const char* line, Nob_String_Builder* sb) {
     bool result = true;
     // Clear the result string builder
@@ -194,7 +226,7 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
             // If not, just add the word to the string buffer and continue
             for (size_t i = 0; i < word.count; ++i) {
                 if (word.data[i] != 'h')
-                    nob_da_append(sb, word.data[i]);
+                    nob_da_append(sb, getCharOrJ(i, word.data, word.count));
             }
             nob_da_append(sb, ' ');
             continue;
@@ -202,7 +234,7 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
 
         Nob_String_View nextWord = choppedLine.items[i + 1];
         // Check if the next word begins with a vowel or an 'h'
-        bool beginsWithVowel = nextWord.data[0] == 'h' || isVowel(nextWord.data, 0);
+        bool beginsWithVowel = nextWord.data[0] == 'h' || (getCharOrJ(0, nextWord.data, nextWord.count) != 'j' && isVowel(nextWord.data, 0));
         if (beginsWithVowel) {
             // If so, perform elision
 
@@ -217,13 +249,16 @@ bool dhElision(const char* line, Nob_String_Builder* sb) {
             // Add the truncated word to the string builder
             for (size_t i = 0; i < size; ++i) {
                 if (word.data[i] != 'h')
-                    nob_da_append(sb, word.data[i]);
+                    nob_da_append(sb, getCharOrJ(i, word.data, word.count));
             }
             // Add extra spaces to the string builder to keep it the same length
             for (size_t _ = 1; _ < word.count - size; ++_) nob_da_append(sb, ' ');
         } else {
             // If not, just add the line to the string builder
-            nob_sb_append_buf(sb, word.data, word.count);
+            for (size_t i = 0; i < word.count; ++i) {
+                if (word.data[i] != 'h')
+                    nob_da_append(sb, getCharOrJ(i, word.data, word.count));
+            }
         }
         // Add a space to seperate the words
         nob_da_append(sb, ' ');
